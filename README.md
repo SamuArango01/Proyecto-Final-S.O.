@@ -1,4 +1,4 @@
-# 🧩 Proyecto Final - Compresor Huffman (Sistemas Operativos)
+# 🧩 Proyecto Final 
 
 ## 👩‍💻 Autores
 
