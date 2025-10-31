@@ -8,7 +8,7 @@
 * **Emily Cardona**
 
 **Proyecto Final - Sistemas Operativos (2025-2)**  
-**Programa de Ingeniería de Sistemas**
+
 
 ---
 
@@ -131,7 +131,6 @@ OK: comprimido 732286 / 1300000 bytes (TC=0.56, reduccion=43.7%)
 OK: descomprimido
 Archivos iguales ✅
 
-![Imagen de WhatsApp 2025-10-31 a las 00 10 32_8f2d909a](https://github.com/user-attachments/assets/08b71fe7-699e-46e5-b7ed-a7a30863465c)
 
 ```
 
