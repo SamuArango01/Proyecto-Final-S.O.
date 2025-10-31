@@ -8,7 +8,7 @@
 * **Emily Cardona**
 
 **Proyecto Final - Sistemas Operativos (2025-2)**  
-**Programa de Ingeniería de Sistemas**
+
 
 ---
 
