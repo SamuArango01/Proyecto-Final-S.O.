@@ -249,6 +249,4 @@ Archivos iguales ✅
 ---
 
 
-**Próximo Hito:** Implementación de cifrado Vigenère + soporte PDF
 
-*Última actualización: Marzo 2025*
