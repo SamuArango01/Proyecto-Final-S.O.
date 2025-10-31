@@ -13,11 +13,12 @@
 
 ## 📘 Descripción General
 
-Este proyecto implementa una **utilidad de línea de comandos en C++** capaz de **comprimir y descomprimir archivos de texto (.txt)** utilizando el **algoritmo de compresión Huffman**, desarrollado completamente **desde cero** y **sin uso de librerías externas**.
+Este proyecto implementa una **utilidad de línea de comandos en C++** capaz de **comprimir y descomprimir ACTUALMENTE archivos de texto (.txt)** utilizando el **algoritmo de compresión Huffman**, desarrollado completamente **desde cero** y **sin uso de librerías externas**, hecho completaamente por nosotros.
 
-El objetivo principal es ofrecer una herramienta eficiente y sin pérdida de información, que reduzca significativamente el tamaño de archivos de texto.  
+El objetivo principal es ofrecer una herramienta eficiente (a diferencia de otros como el RLE) y sin pérdida de información, que reduzca significativamente el tamaño de archivos de texto.  
 El proyecto cumple con los principios de **eficiencia, concurrencia y manejo directo de archivos** exigidos en la asignatura de Sistemas Operativos.
 
+Hasta ahora llevamos una mejora del tiempo de compresión de archivos.txt, Utilizamos el algoritmo más eficiente y recomendado y tenemos un producto mínimo funcional que sirve para: Comprimir y descomprimir archivos.txt y calcular la eficiencia de la tasa de compresión
 ---
 
 ## ⚙️ Funcionamiento
@@ -26,7 +27,7 @@ El programa funciona desde la terminal mediante los siguientes comandos:
 
 ### 🔹 Compresión
 ```bash
-./app -c -i <archivo_entrada.txt> -o <archivo_salida.hf2>
+./app -c -i <prueba.txt> -o <prueba.hf2>
 ```
 
 * `-c` → indica compresión.
