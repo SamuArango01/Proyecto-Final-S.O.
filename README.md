@@ -3,22 +3,29 @@
 ## 👩‍💻 Autores
 
 * **Samuel Arango**
-* **Alyson Henao**
+* **Alyson Henao** 
 * **Samuel Moncada**
 * **Emily Cardona**
 
-**Proyecto Final - Sistemas Operativos (2025-2)**
+**Proyecto Final - Sistemas Operativos (2025-2)**  
 **Programa de Ingeniería de Sistemas**
 
+---
 
 ## 📘 Descripción General
 
-Este proyecto implementa una **utilidad de línea de comandos en C++** capaz de **comprimir y descomprimir ACTUALMENTE archivos de texto (.txt)** utilizando el **algoritmo de compresión Huffman**, desarrollado completamente **desde cero** y **sin uso de librerías externas**, hecho completaamente por nosotros.
+Este proyecto implementa una **utilidad de línea de comandos en C++** capaz de **comprimir y descomprimir archivos de texto (.txt)** utilizando el **algoritmo de compresión Huffman**, desarrollado completamente **desde cero** y **sin uso de librerías externas**, implementado íntegramente por nuestro equipo.
 
-El objetivo principal es ofrecer una herramienta eficiente (a diferencia de otros como el RLE) y sin pérdida de información, que reduzca significativamente el tamaño de archivos de texto.  
-El proyecto cumple con los principios de **eficiencia, concurrencia y manejo directo de archivos** exigidos en la asignatura de Sistemas Operativos.
+El objetivo principal es ofrecer una herramienta eficiente (superando métodos básicos como RLE) y sin pérdida de información, que reduzca significativamente el tamaño de archivos de texto.  
+El proyecto cumple con los principios de **eficiencia, concurrencia y manejo directo de archivos** exigidos en la asignatura de Sistemas Operativos. 
 
-Hasta ahora llevamos una mejora del tiempo de compresión de archivos.txt, Utilizamos el algoritmo más eficiente y recomendado y tenemos un producto mínimo funcional que sirve para: Comprimir y descomprimir archivos.txt y calcular la eficiencia de la tasa de compresión
+**Logros actuales:**
+- ✅ Mejora significativa en tiempo de compresión para archivos .txt
+- ✅ Implementación del algoritmo más eficiente y recomendado (Huffman)
+- ✅ Producto mínimo funcional operativo
+- ✅ Capacidad de comprimir y descomprimir archivos .txt
+- ✅ Cálculo automático de la tasa de compresión
+
 ---
 
 ## ⚙️ Funcionamiento
@@ -27,25 +34,23 @@ El programa funciona desde la terminal mediante los siguientes comandos:
 
 ### 🔹 Compresión
 ```bash
-./app -c -i <prueba.txt> -o <prueba.hf2>
+./app -c -i <archivo_entrada.txt> -o <archivo_salida.hf2>
 ```
 
-* `-c` → indica compresión.
-* `-i` → archivo de entrada (.txt).
-* `-o` → archivo de salida comprimido (.hf2).
+* `-c` → indica compresión
+* `-i` → archivo de entrada (.txt)
+* `-o` → archivo de salida comprimido (.hf2)
 
 Durante la compresión, el programa:
 
-1. Lee el archivo utilizando **llamadas al sistema POSIX** (`open`, `read`, `write`).
-2. Calcula la **frecuencia de cada carácter** del texto.
-3. Construye el **árbol de Huffman** y asigna códigos binarios más cortos a los caracteres más frecuentes.
+1. Lee el archivo utilizando **llamadas al sistema POSIX** (`open`, `read`, `write`)
+2. Calcula la **frecuencia de cada carácter** del texto
+3. Construye el **árbol de Huffman** y asigna códigos binarios más cortos a los caracteres más frecuentes
 4. Genera un archivo comprimido en formato **HF2**, que contiene:
+   * Encabezado con tamaño original y frecuencias
+   * Bitstream codificado con Huffman
 
-   * Encabezado con tamaño original y frecuencias.
-   * Bitstream codificado con Huffman.
-
-Además, incluye un modo **AutoSafe estricto**:
-
+**Modo AutoSafe estricto:**
 > Solo se genera el archivo comprimido si el resultado **es estrictamente menor** al tamaño original.
 > Esto garantiza que la compresión **nunca aumente el tamaño del archivo**.
 
@@ -57,15 +62,15 @@ Además, incluye un modo **AutoSafe estricto**:
 ./app -d -i <archivo_entrada.hf2> -o <archivo_salida.txt>
 ```
 
-* `-d` → indica descompresión.
-  El programa reconstruye el árbol de Huffman a partir del encabezado y restaura el archivo original **exactamente igual** al texto fuente.
+* `-d` → indica descompresión
+
+El programa reconstruye el árbol de Huffman a partir del encabezado y restaura el archivo original **exactamente igual** al texto fuente.
 
 ---
 
-## 🧠 Algoritmo de Compresión: **Huffman**
+## 🧠 Algoritmo de Compresión: **Huffman por recomendación del profe**
 
-El **algoritmo de Huffman** es uno de los métodos de compresión sin pérdida más eficientes conocidos.
-Su principio se basa en la **codificación de longitud variable**, donde los símbolos más frecuentes usan menos bits, logrando una mejor relación de compresión.
+El **algoritmo de Huffman** es uno de los métodos de compresión sin pérdida más eficientes conocidos. Su principio se basa en la **codificación de longitud variable**, donde los símbolos más frecuentes usan menos bits, logrando una mejor relación de compresión.
 
 ### 🔬 Ventajas sobre otros algoritmos
 
@@ -75,8 +80,7 @@ Su principio se basa en la **codificación de longitud variable**, donde los sí
 | **RLE (Run-Length Encoding)** | Sin pérdida | Muy simple y rápido.                                                    | Ineficiente si el archivo no tiene repeticiones consecutivas. |
 | **LZW (Lempel–Ziv–Welch)**    | Sin pérdida | Compresión adaptable sin preprocesar frecuencias.                       | Más complejo de implementar; tablas dinámicas.                |
 
-➡️ **Conclusión:** Huffman logra **mejor balance entre eficiencia, simplicidad y compresión real** en textos extensos.
-En pruebas realizadas, se obtuvieron reducciones de **hasta 60 % del tamaño original** en archivos de texto con contenido repetitivo.
+➡️ **Conclusión:** Huffman logra **mejor balance entre eficiencia, simplicidad y compresión real** en textos extensos. En pruebas realizadas, se obtuvieron reducciones de **hasta 60% del tamaño original** en archivos de texto con contenido repetitivo.
 
 ---
 
@@ -90,9 +94,9 @@ Actualmente el programa soporta:
 
 ### 🔮 Próximas versiones
 
-* **`.pdf`** → Se planea añadir compatibilidad para comprimir documentos PDF, aplicando la misma política *AutoSafe* (solo se comprime si realmente reduce el tamaño).
-* **Directorios** → Procesamiento concurrente de múltiples archivos.
-* **Cifrado** → Posibilidad de aplicar encriptación simétrica (Vigenère / AES-lite) tras la compresión.
+* **`.pdf`** → Compatibilidad para comprimir documentos PDF, aplicando la misma política *AutoSafe*
+* **Directorios** → Procesamiento concurrente de múltiples archivos
+* **Cifrado** → Posibilidad de aplicar encriptación simétrica (Vigenère / AES-lite) tras la compresión
 
 ---
 
@@ -100,8 +104,8 @@ Actualmente el programa soporta:
 
 * **Lenguaje:** C++17
 * **Compilador:** GCC (g++)
-* **E/S de bajo nivel:** llamadas POSIX (`open`, `read`, `write`, `close`, `stat`, `chmod`).
-* **Sin dependencias externas.**
+* **E/S de bajo nivel:** llamadas POSIX (`open`, `read`, `write`, `close`, `stat`, `chmod`)
+* **Sin dependencias externas**
 
 ---
 
@@ -122,7 +126,6 @@ diff prueba.txt salida.txt && echo "Archivos iguales ✅"
 ```
 
 **Salida esperada:**
-
 ```
 OK: comprimido 732286 / 1300000 bytes (TC=0.56, reduccion=43.7%)
 OK: descomprimido
@@ -140,9 +143,3 @@ Archivos iguales ✅
 
 ---
 
-
----
-
-## 🧭 Licencia
-
-Proyecto académico de uso libre con fines educativos.
