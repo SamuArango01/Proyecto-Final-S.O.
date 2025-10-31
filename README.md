@@ -14,7 +14,7 @@
 
 ## 📘 Descripción General
 
-Este proyecto implementa una **utilidad de línea de comandos en C++** capaz de **comprimir y descomprimir archivos de texto (.txt)** utilizando el **algoritmo de compresión Huffman**, desarrollado completamente **desde cero** y **sin uso de librerías externas**, implementado completamente por nuestro equipo.
+Este proyecto implementa una **utilidad de línea de comandos en C++** capaz de **comprimir y descomprimir (pendiente de encriptar y desencriptar) archivos de texto (.txt)** utilizando el **algoritmo de compresión Huffman**, desarrollado completamente **desde cero** y **sin uso de librerías externas**, implementado completamente por nuestro equipo.
 
 El objetivo principal es ofrecer una herramienta eficiente (superando métodos básicos como RLE) y sin pérdida de información, que reduzca significativamente el tamaño de archivos de texto.  
 El proyecto cumple con los principios de **eficiencia, concurrencia y manejo directo de archivos** exigidos en la asignatura de Sistemas Operativos. 
