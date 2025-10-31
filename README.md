@@ -111,10 +111,9 @@ public:
 
 **Estrategia de implementación:**
 
-#### Fase 1: Análisis de formatos 
+#### Fase 1: Análisis de formatos (Pensamos en ampliar el tipo de documentos que recibe el programa, la idea es que también reciba PDF's y .docx's cuando este finalizado) 
 - **PDF**: Investigar estructura de archivos PDF y extracción de texto
 - **DOCX**: Analizar formato ZIP+XML de documentos Word
-- **ODT**: Estructura OpenDocument basada en XML
 
 #### Fase 2: Extracción de contenido 
 ```cpp
