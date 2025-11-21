@@ -14,27 +14,34 @@ public:
     explicit BitWriterFD(int fd) : fd_(fd), buf_(0), used_(0) {}
 
     // Escribe 'len' bits de 'bits' (más significativo primero).
-    void writeBits(uint64_t bits, uint8_t len) {
+    // len debe estar en [0, 64].
+    void writeBits(std::uint64_t bits, int len) {
+        if (len < 0 || len > 64) {
+            throw std::runtime_error("BitWriterFD::writeBits len invalido");
+        }
         for (int i = len - 1; i >= 0; --i) {
-            uint8_t bit = (bits >> i) & 1U;
-            buf_ = (uint8_t)((buf_ << 1) | bit);
-            used_++;
+            uint8_t bit = static_cast<uint8_t>((bits >> i) & 1ULL);
+            buf_ = static_cast<uint8_t>((buf_ << 1) | bit);
+            ++used_;
             if (used_ == 8) {
                 if (::write(fd_, &buf_, 1) != 1) {
-                    throw std::runtime_error("write() fallo en BitWriterFD");
+                    throw std::runtime_error("write() fallo en BitWriterFD::writeBits");
                 }
-                buf_ = 0; used_ = 0;
+                buf_ = 0;
+                used_ = 0;
             }
         }
     }
 
+    // Fuerza escritura de los bits pendientes (rellena con ceros a la derecha).
     void flush() {
         if (used_ > 0) {
             buf_ <<= (8 - used_);
             if (::write(fd_, &buf_, 1) != 1) {
                 throw std::runtime_error("write() fallo en BitWriterFD::flush");
             }
-            buf_ = 0; used_ = 0;
+            buf_ = 0;
+            used_ = 0;
         }
     }
 };

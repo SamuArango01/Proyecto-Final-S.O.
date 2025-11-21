@@ -1,161 +1,220 @@
 #include "huffman.hpp"
-#include "bitio.hpp"
 #include "file_util.hpp"
+
 #include <array>
 #include <queue>
 #include <vector>
 #include <stdexcept>
 #include <cstdint>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
 
 namespace hf2 {
 
-// ======= Encabezado HF2 =======
-// [3]  'H' 'F' '2'
-// [1]  method = 1 (Huffman)
-// [8]  original_size (u64 LE)
-// [256*4] frecuencias (u32 LE)
-// [..] bitstream (MSB-first) de Huffman
+// Formato HF2:
+//  [0..2]  : 'H' 'F' '2'
+//  [3]     : method (1 = Huffman)
+//  [4..11] : uint64_t original_size (LE)
+//  [12..12+256*4-1] : 256 uint32_t frecuencias (LE)
+//  [resto] : bitstream Huffman
 
 struct Node {
-    uint8_t b; uint64_t f; Node* l; Node* r; bool leaf;
-    Node(uint8_t B, uint64_t F, bool L): b(B), f(F), l(nullptr), r(nullptr), leaf(L) {}
+    uint8_t  byte;
+    bool     leaf;
+    uint64_t freq;
+    Node*    left;
+    Node*    right;
+
+    Node(uint8_t b, uint64_t f, bool isLeaf)
+        : byte(b), leaf(isLeaf), freq(f), left(nullptr), right(nullptr) {}
 };
-struct Cmp {
+
+struct NodeCmp {
     bool operator()(const Node* a, const Node* b) const {
-        if (a->f != b->f) return a->f > b->f;
-        return a > b;
+        return a->freq > b->freq;
     }
 };
 
-static void freeTree(Node* n){ if(!n) return; freeTree(n->l); freeTree(n->r); delete n; }
+struct Code {
+    uint64_t bits;
+    uint8_t  len;
+};
 
-struct Code { uint64_t bits=0; uint8_t len=0; };
+static void freeTree(Node* n) {
+    if (!n) return;
+    freeTree(n->left);
+    freeTree(n->right);
+    delete n;
+}
 
-static Node* buildTree(const std::array<uint64_t,256>& fr) {
-    std::priority_queue<Node*, std::vector<Node*>, Cmp> pq;
-    size_t nz=0;
-    for (int i=0;i<256;++i) if (fr[i]) { pq.push(new Node((uint8_t)i, fr[i], true)); ++nz; }
-    if (nz==0) return nullptr;
-    if (pq.size()==1) { // caso borde: solo un símbolo
-        Node* only=pq.top(); pq.pop();
-        Node* root = new Node(0, only->f, false);
-        root->l = only;
-        root->r = new Node(only->b, 0, true); // rama dummy
-        return root;
+static Node* buildTree(const std::array<uint64_t,256>& freq) {
+    std::priority_queue<Node*, std::vector<Node*>, NodeCmp> pq;
+    for (int i = 0; i < 256; ++i) {
+        if (freq[i] == 0) continue;
+        pq.push(new Node(static_cast<uint8_t>(i), freq[i], true));
     }
-    while (pq.size()>1) {
-        Node* a=pq.top(); pq.pop();
-        Node* b=pq.top(); pq.pop();
-        Node* p=new Node(0, a->f+b->f, false);
-        p->l=a; p->r=b;
+
+    if (pq.empty()) {
+        return nullptr;
+    }
+
+    if (pq.size() == 1) {
+        Node* a = pq.top(); pq.pop();
+        Node* p = new Node(0, a->freq, false);
+        p->left = a;
         pq.push(p);
     }
+
+    while (pq.size() > 1) {
+        Node* a = pq.top(); pq.pop();
+        Node* b = pq.top(); pq.pop();
+        Node* p = new Node(0, a->freq + b->freq, false);
+        p->left  = a;
+        p->right = b;
+        pq.push(p);
+    }
+
     return pq.top();
 }
 
-static void genCodes(Node* n, std::array<Code,256>& T, uint64_t path, uint8_t depth) {
+static void genCodes(Node* n,
+                     std::array<Code,256>& table,
+                     uint64_t path,
+                     uint8_t depth)
+{
     if (!n) return;
-    if (n->leaf) { T[n->b].bits=path; T[n->b].len=depth; return; }
-    genCodes(n->l, T, (path<<1)|0ULL, (uint8_t)(depth+1));
-    genCodes(n->r, T, (path<<1)|1ULL, (uint8_t)(depth+1));
+    if (n->leaf) {
+        table[n->byte].bits = path;
+        table[n->byte].len  = depth;
+        return;
+    }
+    genCodes(n->left,  table, (path << 1) | 0u, static_cast<uint8_t>(depth + 1));
+    genCodes(n->right, table, (path << 1) | 1u, static_cast<uint8_t>(depth + 1));
 }
 
-// Construye el archivo *completo* HF2 en memoria (vector<uint8_t>).
-// Lanza si input no reduce tamaño.
-static std::vector<uint8_t> buildHF2orThrow(const std::vector<uint8_t>& data) {
-    const uint64_t n = (uint64_t)data.size();
-    std::array<uint64_t,256> fr{}; for (uint8_t b : data) fr[b]++;
+// Construye el buffer HF2 (header + bitstream) en memoria.
+static std::vector<uint8_t> buildHF2(const std::vector<uint8_t>& data) {
+    const uint64_t n = static_cast<uint64_t>(data.size());
 
-    // Header provisional en 'out'
+    std::array<uint64_t,256> freq{};
+    for (uint8_t b : data) {
+        freq[b]++;
+    }
+
     std::vector<uint8_t> out;
-    out.reserve(3 + 1 + 8 + 256*4 + (n? n/2 : 0));
-    out.push_back('H'); out.push_back('F'); out.push_back('2');
-    out.push_back((uint8_t)1); // method = 1 (Huffman)
-    futil::write_u64_le(out, n);
-    for (int i=0;i<256;++i) futil::write_u32_le(out, (uint32_t)(fr[i] > 0xFFFFFFFFULL ? 0xFFFFFFFFULL : fr[i]));
+    out.reserve(3 + 1 + 8 + 256*4 + (n ? n/2 : 0));
 
-    if (n==0) {
-        // archivo vacío → HF2 cabe (solo header) y es más chico que 0? No; pero está ok generar 12+ bytes.
-        // Para este proyecto, tratamos archivo vacío como "comprimido" (tiene sentido).
+    // Magic + metodo
+    out.push_back('H');
+    out.push_back('F');
+    out.push_back('2');
+    out.push_back(1); // method = 1 (Huffman)
+
+    // Tamaño original
+    futil::write_u64_le(out, n);
+
+    // Tabla de frecuencias (uint32 LE saturada)
+    for (int i = 0; i < 256; ++i) {
+        uint64_t f = freq[i];
+        uint32_t f32 = (f > 0xFFFFFFFFull) ? 0xFFFFFFFFu
+                                           : static_cast<uint32_t>(f);
+        futil::write_u32_le(out, f32);
+    }
+
+    if (n == 0) {
+        // Archivo vacío: solo header, sin bitstream.
         return out;
     }
 
-    Node* root = buildTree(fr);
-    if (!root) throw std::runtime_error("Árbol nulo inesperado");
+    Node* root = buildTree(freq);
+    if (!root) {
+        throw std::runtime_error("Arbol Huffman nulo con datos no vacios");
+    }
 
-    // Bitstream en un fd temporal (memoria → pipe/archivo?), aquí usamos un vector y luego lo escribimos con syscalls
-    // Para cumplir "solo syscalls", convertimos el bitstream directamente a bytes en un vector extra.
+    std::array<Code,256> table{};
+    genCodes(root, table, 0, 0);
+
+    // Codificar a bitstream
     std::vector<uint8_t> bitbuf;
-    {
-        // Simula un BitWriter a un vector usando un byte acumulador.
-        uint8_t buf=0; int used=0;
-        std::array<Code,256> T{}; genCodes(root, T, 0ULL, 0);
-        auto pushByte = [&](uint8_t x){ bitbuf.push_back(x); };
+    bitbuf.reserve(n / 2 + 16);
 
-        for (uint8_t b : data) {
-            Code c = T[b];
-            // MSB-first
-            for (int i = c.len - 1; i >= 0; --i) {
-                uint8_t bit = (c.bits >> i) & 1U;
-                buf = (uint8_t)((buf << 1) | bit);
-                used++;
-                if (used == 8) { pushByte(buf); buf=0; used=0; }
+    uint8_t  buf  = 0;
+    int      used = 0;
+
+    auto pushByte = [&](uint8_t x) {
+        bitbuf.push_back(x);
+    };
+
+    for (uint8_t b : data) {
+        const Code& c = table[b];
+        for (int i = c.len - 1; i >= 0; --i) {
+            uint8_t bit = static_cast<uint8_t>((c.bits >> i) & 1u);
+            buf = static_cast<uint8_t>((buf << 1) | bit);
+            used++;
+            if (used == 8) {
+                pushByte(buf);
+                buf  = 0;
+                used = 0;
             }
         }
-        if (used>0) { buf <<= (8-used); pushByte(buf); }
+    }
+
+    if (used > 0) {
+        buf <<= (8 - used);
+        pushByte(buf);
     }
 
     freeTree(root);
 
-    // Adjuntar bitstream
+    // Adjuntar bitstream al header
     out.insert(out.end(), bitbuf.begin(), bitbuf.end());
 
-    // Verificación AUTOSAFE (estricta): tamaño HF2 debe ser < tamaño original
-    if (out.size() >= data.size()) {
-        throw std::runtime_error("Compresion no reduce tamaño (AutoSafe estricto).");
-    }
+    // Aquí ya no hacemos verificación de "autosafe".
+    // La tasa de compresión se reporta en el CLI.
     return out;
 }
 
 void compress_autosafe_hf2(const std::string& inPath, const std::string& outPath) {
-    // Solo .txt por ahora
+    // Restriccion original: solo .txt
     if (!futil::is_txt(inPath)) {
-        throw std::runtime_error("Solo se admiten .txt por ahora (entrada: " + inPath + ")");
+        throw std::runtime_error("Solo se admiten archivos .txt como entrada (" + inPath + ")");
     }
 
-    // Lee archivo completo con syscalls
     std::vector<uint8_t> data = futil::read_all(inPath);
+    std::vector<uint8_t> hf2  = buildHF2(data);
 
-    // Construye HF2 o lanza si no reduce
-    std::vector<uint8_t> hf2 = buildHF2orThrow(data);
-
-    // Escribe HF2
     futil::write_all(outPath, hf2);
-
-    // Copiar permisos del original
     futil::copy_mode(inPath, outPath);
 }
 
 void decompress_hf2(const std::string& inPath, const std::string& outPath) {
-    // Abrimos con syscalls y leemos a memoria para simplicidad + validación
     std::vector<uint8_t> in = futil::read_all(inPath);
-    if (in.size() < 3+1+8+256*4) throw std::runtime_error("Archivo demasiado pequeño para HF2");
+    const std::size_t minHeader = 3 + 1 + 8 + 256*4;
 
-    if (!(in[0]=='H' && in[1]=='F' && in[2]=='2')) throw std::runtime_error("Magic invalido (no HF2)");
-    if (in[3] != 1) throw std::runtime_error("Metodo HF2 no soportado");
+    if (in.size() < minHeader) {
+        throw std::runtime_error("Archivo demasiado pequeño para HF2");
+    }
+
+    if (!(in[0] == 'H' && in[1] == 'F' && in[2] == '2')) {
+        throw std::runtime_error("Magic invalido (no HF2)");
+    }
+    if (in[3] != 1) {
+        throw std::runtime_error("Metodo HF2 no soportado");
+    }
+
     const uint8_t* p = in.data() + 4;
-    uint64_t original = futil::read_u64_le(p); p += 8;
 
-    std::array<uint64_t,256> fr{};
-    for (int i=0;i<256;++i) { fr[i] = futil::read_u32_le(p); p += 4; }
+    uint64_t original = futil::read_u64_le(p);
+    p += 8;
+
+    std::array<uint64_t,256> freq{};
+    for (int i = 0; i < 256; ++i) {
+        uint32_t f32 = futil::read_u32_le(p);
+        p += 4;
+        freq[i] = f32;
+    }
 
     const uint8_t* bitstart = p;
     const uint8_t* bitend   = in.data() + in.size();
 
-    // Caso borde
     if (original == 0) {
         std::vector<uint8_t> empty;
         futil::write_all(outPath, empty);
@@ -163,41 +222,54 @@ void decompress_hf2(const std::string& inPath, const std::string& outPath) {
         return;
     }
 
-    Node* root = buildTree(fr);
-    if (!root) throw std::runtime_error("Árbol nulo con original>0");
+    Node* root = buildTree(freq);
+    if (!root) {
+        throw std::runtime_error("Arbol Huffman nulo en decompress");
+    }
 
-    // Decodificar bits
     std::vector<uint8_t> out;
     out.reserve(original);
 
-    // Usamos BitReaderFD sobre un fd temporal para ceñirnos a la interfaz, pero
-    // aquí ya tenemos todo en memoria; decodificamos manualmente desde el buffer.
-    uint8_t curByte = 0; int left = 0;
-    auto nextBit = [&](int& outBit)->bool {
+    uint8_t curByte = 0;
+    int     left    = 0;
+
+    auto nextBit = [&](int& outBit) -> bool {
         if (left == 0) {
-            if (bitstart >= bitend) return false;
+            if (bitstart >= bitend) {
+                return false;
+            }
             curByte = *bitstart++;
             left = 8;
         }
-        outBit = (curByte >> 7) & 1U;
+        outBit = (curByte >> 7) & 1u;
         curByte <<= 1;
         --left;
         return true;
     };
 
-    Node* cur = root;
-    uint64_t written = 0;
+    Node*    cur      = root;
+    uint64_t written  = 0;
+
     while (written < original) {
-        int bit;
-        if (!nextBit(bit)) { freeTree(root); throw std::runtime_error("EOF prematuro en bitstream"); }
-        cur = (bit==0) ? cur->l : cur->r;
-        if (!cur) { freeTree(root); throw std::runtime_error("Bitstream invalido"); }
+        int b;
+        if (!nextBit(b)) {
+            freeTree(root);
+            throw std::runtime_error("Bitstream demasiado corto");
+        }
+
+        cur = (b == 0) ? cur->left : cur->right;
+        if (!cur) {
+            freeTree(root);
+            throw std::runtime_error("Bitstream invalido (ruta nula)");
+        }
+
         if (cur->leaf) {
-            out.push_back(cur->b);
+            out.push_back(cur->byte);
             ++written;
             cur = root;
         }
     }
+
     freeTree(root);
 
     futil::write_all(outPath, out);

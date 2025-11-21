@@ -15,8 +15,11 @@ std::vector<uint8_t> read_all(const std::string& path) {
     uint8_t tmp[1<<15]; // 32KB
     for (;;) {
         ssize_t r = ::read(fd, tmp, sizeof(tmp));
-        if (r == 0) break;              // EOF
-        if (r < 0) { ::close(fd); throw std::runtime_error("read() fallo: " + path); }
+        if (r < 0) {
+            ::close(fd);
+            throw std::runtime_error("read() fallo en read_all");
+        }
+        if (r == 0) break;
         buf.insert(buf.end(), tmp, tmp + r);
     }
     ::close(fd);
@@ -24,25 +27,33 @@ std::vector<uint8_t> read_all(const std::string& path) {
 }
 
 void write_all(const std::string& path, const std::vector<uint8_t>& data) {
-    int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if (fd < 0) throw std::runtime_error("open() fallo al escribir: " + path);
-    size_t off = 0;
-    while (off < data.size()) {
-        ssize_t w = ::write(fd, data.data() + off, data.size() - off);
-        if (w < 0) { ::close(fd); throw std::runtime_error("write() fallo: " + path); }
-        off += (size_t)w;
+
+    const uint8_t* p = data.data();
+    size_t left = data.size();
+    while (left > 0) {
+        ssize_t w = ::write(fd, p, left);
+        if (w < 0) {
+            ::close(fd);
+            throw std::runtime_error("write() fallo en write_all");
+        }
+        p += w;
+        left -= (size_t)w;
     }
     ::close(fd);
 }
 
 std::uint64_t file_size(const std::string& path) {
-    struct stat st{};
-    if (::stat(path.c_str(), &st) != 0) throw std::runtime_error("stat() fallo: " + path);
-    return static_cast<std::uint64_t>(st.st_size);
+    struct stat st;
+    if (::stat(path.c_str(), &st) != 0) {
+        throw std::runtime_error("stat() fallo en file_size: " + path);
+    }
+    return (std::uint64_t)st.st_size;
 }
 
 void copy_mode(const std::string& src, const std::string& dst) {
-    struct stat st{};
+    struct stat st;
     if (::stat(src.c_str(), &st) != 0) return;
     ::chmod(dst.c_str(), st.st_mode & 0777);
 }
